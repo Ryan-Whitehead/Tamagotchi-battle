@@ -1,0 +1,77 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id          Int          @id @default(autoincrement())
+  email       String       @unique
+  password    String
+  createdAt   DateTime     @default(now())
+  tamagotchis Tamagotchi[]
+}
+
+//Tamagotchi model - stores pet data
+model Tamagotchi {
+  id            Int             @id @default(autoincrement())
+  name          String          @default("Tamagotchi")
+  type          String          @default("Standard")
+  hunger        Int             @default(50)
+  happiness     Int             @default(50)
+  energy        Int             @default(50)
+  level         Int             @default(1)
+  xp            Int             @default(0)
+  health        Int             @default(100)
+  wins          Int             @default(0)
+  losses        Int             @default(0)
+  isNPC         Boolean         @default(false) // ← ADD THIS LINE
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  ownerId       Int
+  owner         User            @relation(fields: [ownerId], references: [id])
+  wonBattles    Battle[]        @relation("WinnerBattles")
+  lostBattles   Battle[]        @relation("LoserBattles")
+  playerBattles BattleSession[] @relation("PlayerBattles")
+  npcBattles    BattleSession[] @relation("NPCBattles")
+}
+
+model Battle {
+  id          Int      @id @default(autoincrement())
+  winnerId    Int
+  loserId     Int
+  winnerScore Int
+  loserScore  Int
+  turns       Int      @default(1)
+  createdAt   DateTime @default(now())
+
+  winner Tamagotchi @relation("WinnerBattles", fields: [winnerId], references: [id])
+  loser  Tamagotchi @relation("LoserBattles", fields: [loserId], references: [id])
+}
+
+model BattleSession {
+  id            String   @id @default(cuid())
+  playerId      Int
+  npcId         Int
+  playerHP      Int      @default(100)
+  npcHP         Int      @default(100)
+  round         Int      @default(1)
+  playerDefense Boolean  @default(false)
+  npcDefense    Boolean  @default(false)
+  status        String   @default("active") // active, player_win, npc_win, run
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  player Tamagotchi @relation("PlayerBattles", fields: [playerId], references: [id])
+  npc    Tamagotchi @relation("NPCBattles", fields: [npcId], references: [id])
+}
