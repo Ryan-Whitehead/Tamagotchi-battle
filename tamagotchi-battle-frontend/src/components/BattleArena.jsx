@@ -2,6 +2,8 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import BattleActions from "./BattleActions";
+import Celebration from "./Celebration";
+import Defeat from "./Defeat";
 
 function BattleArena({ token, tamagotchi, onBattleComplete }) {
   console.log(
@@ -24,6 +26,10 @@ function BattleArena({ token, tamagotchi, onBattleComplete }) {
   const [isBattleActive, setIsBattleActive] = useState(true);
   const [energy, setEnergy] = useState(tamagotchi?.energy || 100);
   const [view, setView] = useState("select"); // select, battle, result
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationData, setCelebrationData] = useState(null);
+  const [showDefeat, setShowDefeat] = useState(false);
+  const [defeatData, setDefeatData] = useState(null);
 
   // Fetch NPC opponents on component mount
   const fetchOpponents = async () => {
@@ -87,6 +93,7 @@ function BattleArena({ token, tamagotchi, onBattleComplete }) {
       const result = response.data;
       setBattleState((prev) => ({
         ...prev,
+        round: result.currentRound,
         player: { ...prev.player, hp: result.player.hp },
         npc: { ...prev.npc, hp: result.npc.hp },
       }));
@@ -99,6 +106,11 @@ function BattleArena({ token, tamagotchi, onBattleComplete }) {
       if (result.battleEnded) {
         setIsBattleActive(false);
         if (result.winner === "player" && result.rewards) {
+          setCelebrationData({
+            rewards: result.rewards,
+            playerName: result.player?.name || tamagotchi?.name,
+          });
+          setShowCelebration(true);
           setBattleLog((prev) => [
             ...prev,
             `🎉 VICTORY! +${result.rewards.xpGained} XP!`,
@@ -107,15 +119,20 @@ function BattleArena({ token, tamagotchi, onBattleComplete }) {
               : []),
           ]);
         } else if (result.winner === "npc") {
+          setDefeatData({
+            npcName: result.npc?.name,
+            playerName: tamagotchi?.name,
+          });
+          setShowDefeat(true);
           setBattleLog((prev) => [
             ...prev,
             `💀 DEFEAT! Better luck next time!`,
           ]);
         } else if (result.winner === "run") {
           setBattleLog((prev) => [...prev, `🏃 You ran away!`]);
+          setView("result");
+          if (onBattleComplete) onBattleComplete();
         }
-        setView("result");
-        if (onBattleComplete) onBattleComplete();
       } else {
         setIsPlayerTurn(true);
       }
@@ -483,6 +500,31 @@ function BattleArena({ token, tamagotchi, onBattleComplete }) {
           </>
         )}
       </div>
+      {/* Celebration Modal */}
+      {showCelebration && (
+        <Celebration
+          winner="player"
+          rewards={celebrationData?.rewards}
+          tamagotchiName={celebrationData?.playerName}
+          onClose={() => {
+            setShowCelebration(false);
+            setView("result");
+            if (onBattleComplete) onBattleComplete();
+          }}
+        />
+      )}
+      {/* Defeat Modal */}
+      {showDefeat && defeatData && (
+        <Defeat
+          npcName={defeatData.npcName}
+          tamagotchiName={defeatData.playerName}
+          onClose={() => {
+            setShowDefeat(false);
+            setView("result");
+            if (onBattleComplete) onBattleComplete();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+// src/components/CuteDecoration.jsx
 import { Box, VStack } from "@chakra-ui/react";
 
 function CuteDecoration() {

@@ -111,7 +111,8 @@ router.put("/:id", async (req, res) => {
   try {
     const tamagotchiId = parseInt(req.params.id);
     const userId = req.user.userId;
-    const { hunger, happiness, energy, xp, level, health, name } = req.body;
+    const { hunger, happiness, energy, xp, level, health, name, addXpAmount } =
+      req.body;
 
     const existing = await prisma.tamagotchi.findFirst({
       where: {
@@ -124,22 +125,92 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ error: "Tamagotchi not found" });
     }
 
+    //Handle XP and level up if addXpAmount is provided
+    let newXp = existing.xp;
+    let newLevel = existing.level;
+    let leveledUp = false;
+
+    if (addXpAmount) {
+      newXp = existing.xp + addXpAmount;
+      while (newXp >= newLevel * 100) {
+        newXp = newXp - newLevel * 100;
+        newLevel++;
+        leveledUp = true;
+      }
+    } else if (xp !== undefined) {
+      newXp = xp;
+    }
+
+    if (level != undefined) {
+      newLevel = level;
+    }
+
     const updated = await prisma.tamagotchi.update({
       where: { id: tamagotchiId },
       data: {
         ...(hunger !== undefined && { hunger }),
         ...(happiness !== undefined && { happiness }),
         ...(energy !== undefined && { energy }),
-        ...(xp !== undefined && { xp }),
-        ...(level !== undefined && { level }),
         ...(health !== undefined && { health }),
         ...(name !== undefined && { name }),
+        xp: newXp,
+        level: newLevel,
       },
     });
 
     res.json(updated);
   } catch (error) {
     console.error("Update Tamagotchi error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// Add XP to Tamagotchi (for feed/play/rest actions)
+router.post("/:id/add-xp", async (req, res) => {
+  try {
+    const tamagotchiId = parseInt(req.params.id);
+    const userId = req.user.userId;
+    const { amount } = req.body;
+
+    // Verify ownership
+    const tamagotchi = await prisma.tamagotchi.findFirst({
+      where: {
+        id: tamagotchiId,
+        ownerId: userId,
+        isNPC: false,
+      },
+    });
+
+    if (!tamagotchi) {
+      return res.status(404).json({ error: "Tamagotchi not found" });
+    }
+
+    let newXp = tamagotchi.xp + amount;
+    let newLevel = tamagotchi.level;
+    let leveledUp = false;
+
+    // Handle multiple level ups
+    while (newXp >= newLevel * 100) {
+      newXp = newXp - newLevel * 100;
+      newLevel++;
+      leveledUp = true;
+    }
+
+    const updated = await prisma.tamagotchi.update({
+      where: { id: tamagotchiId },
+      data: {
+        xp: newXp,
+        level: newLevel,
+      },
+    });
+
+    res.json({
+      xp: updated.xp,
+      level: updated.level,
+      leveledUp,
+    });
+  } catch (error) {
+    console.error("Add XP error:", error);
     res.status(500).json({ error: "Server error" });
   }
 });

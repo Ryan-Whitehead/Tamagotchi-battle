@@ -1,3 +1,18 @@
+import {
+  Box,
+  Heading,
+  Button,
+  Input,
+  VStack,
+  HStack,
+  Text,
+  Alert,
+  AlertIcon,
+  Select,
+  SimpleGrid,
+  Progress,
+} from "@chakra-ui/react";
+import { EmailIcon, LockIcon } from "@chakra-ui/icons";
 import { useState, useEffect } from "react";
 import axios from "axios";
 
@@ -8,7 +23,7 @@ import WarningMessages from "./components/WarningMessages";
 import ActionButtons from "./components/ActionButtons";
 import CreateTamagotchi from "./components/CreateTamagotchi";
 import BattleArena from "./components/BattleArena";
-import DeleteTamagotchiModal from "./components/DeleteTamagotchiModal"; // ← ADD THIS
+import DeleteTamagotchiModal from "./components/DeleteTamagotchiModal";
 
 function App() {
   // Auth state
@@ -136,232 +151,298 @@ function App() {
   };
 
   // Action functions
-  const feedTamagotchi = () => {
+  const feedTamagotchi = async () => {
     if (!selectedTamagotchi) return;
     const newHunger = Math.max(0, selectedTamagotchi.hunger - 10);
-    updateTamagotchiStats({ hunger: newHunger });
+
+    try {
+      const response = await axios.put(
+        `http://localhost:8000/tamagotchi/${selectedTamagotchi.id}`,
+        { hunger: newHunger },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      setSelectedTamagotchi(response.data);
+
+      const updatedList = tamagotchis.map((t) =>
+        t.id === response.data.id ? response.data : t,
+      );
+      setTamagotchis(updatedList);
+    } catch (error) {
+      console.error("Feed error:", error);
+    }
   };
 
-  const playWithTamagotchi = () => {
+  const playWithTamagotchi = async () => {
     if (!selectedTamagotchi) return;
     const newHappiness = Math.min(100, selectedTamagotchi.happiness + 15);
     const newEnergy = Math.max(0, selectedTamagotchi.energy - 5);
-    const newXp = selectedTamagotchi.xp + 5;
 
-    updateTamagotchiStats({
-      happiness: newHappiness,
-      energy: newEnergy,
-      xp: newXp,
-    });
+    try {
+      const response = await axios.put(
+        `http://localhost:8000/tamagotchi/${selectedTamagotchi.id}`,
+        {
+          happiness: newHappiness,
+          energy: newEnergy,
+          addXpAmount: 5,
+        },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      setSelectedTamagotchi(response.data);
+
+      const updatedList = tamagotchis.map((t) =>
+        t.id === response.data.id ? response.data : t,
+      );
+      setTamagotchis(updatedList);
+
+      if (response.data.leveledUp) {
+        alert(
+          `🎉 Congratulations! ${selectedTamagotchi.name} reached Level ${response.data.level}! 🎉`,
+        );
+      }
+    } catch (error) {
+      console.error("Play error:", error);
+    }
   };
 
-  const restTamagotchi = () => {
+  const restTamagotchi = async () => {
     if (!selectedTamagotchi) return;
     const newEnergy = Math.min(100, selectedTamagotchi.energy + 20);
     const newHunger = Math.min(100, selectedTamagotchi.hunger + 5);
-    const newXp = selectedTamagotchi.xp + 3;
 
-    updateTamagotchiStats({
-      energy: newEnergy,
-      hunger: newHunger,
-      xp: newXp,
-    });
+    try {
+      const response = await axios.put(
+        `http://localhost:8000/tamagotchi/${selectedTamagotchi.id}`,
+        {
+          energy: newEnergy,
+          hunger: newHunger,
+          addXpAmount: 3,
+        },
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+
+      setSelectedTamagotchi(response.data);
+
+      const updatedList = tamagotchis.map((t) =>
+        t.id === response.data.id ? response.data : t,
+      );
+      setTamagotchis(updatedList);
+
+      if (response.data.leveledUp) {
+        alert(
+          `🎉 Congratulations! ${selectedTamagotchi.name} reached Level ${response.data.level}! 🎉`,
+        );
+      }
+    } catch (error) {
+      console.error("Rest error:", error);
+    }
   };
-
+  // Auto-decay effect
   // Auto-decay effect
   useEffect(() => {
     if (!selectedTamagotchi || !token) return;
 
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       const newHunger = Math.min(100, selectedTamagotchi.hunger + 2);
       const newEnergy = Math.max(0, selectedTamagotchi.energy - 2);
       const newHappiness = Math.max(0, selectedTamagotchi.happiness - 1);
 
-      updateTamagotchiStats({
-        hunger: newHunger,
-        energy: newEnergy,
-        happiness: newHappiness,
-      });
+      try {
+        const response = await axios.put(
+          `http://localhost:8000/tamagotchi/${selectedTamagotchi.id}`,
+          { hunger: newHunger, energy: newEnergy, happiness: newHappiness },
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+
+        setSelectedTamagotchi(response.data);
+
+        const updatedList = tamagotchis.map((t) =>
+          t.id === response.data.id ? response.data : t,
+        );
+        setTamagotchis(updatedList);
+      } catch (error) {
+        console.error("Auto-decay error:", error);
+      }
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [selectedTamagotchi, token]);
+  }, [selectedTamagotchi, token, tamagotchis]);
 
   // Render login form
   if (!isLoggedIn) {
     return (
-      <div style={{ maxWidth: "400px", margin: "100px auto", padding: "20px" }}>
-        <h1>🐣 Tamagotchi Battle</h1>
-        <form onSubmit={isLoginMode ? handleLogin : handleRegister}>
-          <div style={{ marginBottom: "15px" }}>
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={{ width: "100%", padding: "10px", fontSize: "16px" }}
-              required
-            />
-          </div>
-          <div style={{ marginBottom: "15px" }}>
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={{ width: "100%", padding: "10px", fontSize: "16px" }}
-              required
-            />
-          </div>
-          {authError && (
-            <p style={{ color: "red", marginBottom: "15px" }}>⚠️ {authError}</p>
-          )}
-          <button
-            type="submit"
-            disabled={isLoading}
-            style={{
-              width: "100%",
-              padding: "12px",
-              backgroundColor: "#4CAF50",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              fontSize: "16px",
-              cursor: isLoading ? "not-allowed" : "pointer",
-            }}
-          >
-            {isLoading ? "Loading..." : isLoginMode ? "Login" : "Register"}
-          </button>
-        </form>
-        <p style={{ textAlign: "center", marginTop: "15px" }}>
-          <button
-            onClick={() => setIsLoginMode(!isLoginMode)}
-            style={{
-              background: "none",
-              border: "none",
-              color: "#4CAF50",
-              cursor: "pointer",
-            }}
-          >
-            {isLoginMode
-              ? "Need an account? Register"
-              : "Already have an account? Login"}
-          </button>
-        </p>
-      </div>
+      <Box
+        minH="100vh"
+        bg="#FFF8E7"
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Box
+          maxW="md"
+          mx="auto"
+          w="90%"
+          bg="white"
+          borderRadius="1.5rem"
+          boxShadow="0 8px 20px rgba(92, 75, 58, 0.08)"
+          border="1px solid #FDE2D3"
+          p={8}
+        >
+          <VStack spacing={6}>
+            <Heading size="xl" textAlign="center" color="#5C4B3A">
+              🐣 Tamagotchi Battle
+            </Heading>
+
+            <form
+              onSubmit={isLoginMode ? handleLogin : handleRegister}
+              style={{ width: "100%" }}
+            >
+              <VStack spacing={4}>
+                <Input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  bg="white"
+                  borderColor="#FDE2D3"
+                  _focus={{ borderColor: "#D4C5F0", boxShadow: "none" }}
+                  required
+                />
+
+                <Input
+                  type="password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  bg="white"
+                  borderColor="#FDE2D3"
+                  _focus={{ borderColor: "#D4C5F0", boxShadow: "none" }}
+                  required
+                />
+
+                {authError && (
+                  <Alert status="error" borderRadius="lg" bg="#FFAAA5">
+                    <AlertIcon />
+                    <Text color="#5C4B3A">{authError}</Text>
+                  </Alert>
+                )}
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  width="100%"
+                  isLoading={isLoading}
+                >
+                  {isLoginMode ? "Login" : "Register"}
+                </Button>
+              </VStack>
+            </form>
+
+            <Button
+              variant="ghost"
+              onClick={() => setIsLoginMode(!isLoginMode)}
+              width="100%"
+            >
+              {isLoginMode
+                ? "Need an account? Register"
+                : "Already have an account? Login"}
+            </Button>
+          </VStack>
+        </Box>
+      </Box>
     );
   }
 
   // Render main game
+  // Render main game
   return (
-    <div style={{ maxWidth: "600px", margin: "0 auto", padding: "20px" }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
+    <Box maxW="lg" mx="auto" py={8} px={4}>
+      {/* Header */}
+      <Box
+        bg="white"
+        borderRadius="xl"
+        p={4}
+        mb={6}
+        border="1px solid #FDE2D3"
+        boxShadow="0 4px 12px rgba(92, 75, 58, 0.06)"
       >
-        <h1>🐣 Tamagotchi Battle</h1>
-        <button
-          onClick={handleLogout}
-          style={{
-            padding: "8px 16px",
-            backgroundColor: "#f44336",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-          }}
+        <HStack justify="space-between">
+          <Heading size="lg" color="#5C4B3A">
+            🐣 Tamagotchi Battle
+          </Heading>
+          <Button variant="ghost" onClick={handleLogout} size="sm">
+            Logout ({user?.email})
+          </Button>
+        </HStack>
+      </Box>
+
+      {/* Action Buttons Row */}
+      <SimpleGrid columns={3} spacing={4} mb={6}>
+        <Button
+          variant="grass"
+          onClick={() => setShowCreateForm(true)}
+          leftIcon={<span>➕</span>}
         >
-          Logout ({user?.email})
-        </button>
-      </div>
-
-      {/* Create Button */}
-      <div style={{ marginBottom: "20px" }}>
-        {!showCreateForm ? (
-          <button
-            onClick={() => setShowCreateForm(true)}
-            style={{
-              width: "100%",
-              padding: "12px",
-              backgroundColor: "#4CAF50",
-              color: "white",
-              border: "none",
-              borderRadius: "8px",
-              fontSize: "16px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-            }}
-          >
-            <span>➕</span> Create New Tamagotchi
-          </button>
-        ) : (
-          <CreateTamagotchi
-            onTamagotchiCreated={handleTamagotchiCreated}
-            token={token}
-            onClose={() => setShowCreateForm(false)}
-          />
-        )}
-      </div>
-
-      {/* Battle Button */}
-      {tamagotchis.length > 0 && (
-        <button
+          CREATE
+        </Button>
+        <Button
+          variant="water"
           onClick={() => setShowBattleArena(true)}
-          style={{
-            width: "100%",
-            padding: "12px",
-            backgroundColor: "#f39c12",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            fontSize: "16px",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "8px",
-            marginBottom: "20px",
-          }}
+          leftIcon={<span>⚔️</span>}
+          isDisabled={tamagotchis.length === 0}
         >
-          <span>⚔️</span> BATTLE ARENA
-        </button>
-      )}
-
-      {/* Delete Button */}
-      {tamagotchis.length > 0 && (
-        <button
+          BATTLE
+        </Button>
+        <Button
+          variant="fire"
           onClick={() => setShowDeleteModal(true)}
-          style={{
-            width: "100%",
-            padding: "12px",
-            backgroundColor: "#f44336",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            fontSize: "16px",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "8px",
-            marginBottom: "20px",
-          }}
+          leftIcon={<span>🗑️</span>}
+          isDisabled={tamagotchis.length === 0}
         >
-          🗑️ DELETE TAMAGOTCHI
-        </button>
+          DELETE
+        </Button>
+      </SimpleGrid>
+
+      {/* Create Form Modal */}
+      {showCreateForm && (
+        <Box
+          position="fixed"
+          top={0}
+          left={0}
+          right={0}
+          bottom={0}
+          bg="rgba(0,0,0,0.5)"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          zIndex={1000}
+        >
+          <Box bg="white" borderRadius="2xl" p={6} maxW="md" w="90%">
+            <CreateTamagotchi
+              onTamagotchiCreated={handleTamagotchiCreated}
+              token={token}
+              onClose={() => setShowCreateForm(false)}
+            />
+            <Button
+              variant="ghost"
+              onClick={() => setShowCreateForm(false)}
+              mt={4}
+              w="full"
+            >
+              Cancel
+            </Button>
+          </Box>
+        </Box>
       )}
 
       {/* Tamagotchi Selector */}
       {tamagotchis.length > 0 && (
-        <div style={{ marginBottom: "20px" }}>
-          <label style={{ fontWeight: "bold" }}>Select Tamagotchi:</label>
-          <select
+        <Box mb={6}>
+          <Text fontWeight="bold" mb={2} color="#5C4B3A">
+            Select Tamagotchi:
+          </Text>
+          <Select
             value={selectedTamagotchi?.id || ""}
             onChange={(e) => {
               const selected = tamagotchis.find(
@@ -369,50 +450,123 @@ function App() {
               );
               setSelectedTamagotchi(selected);
             }}
-            style={{ width: "100%", padding: "10px", marginTop: "5px" }}
+            bg="white"
+            borderColor="#FDE2D3"
+            _focus={{ borderColor: "#D4C5F0", boxShadow: "none" }}
           >
             {tamagotchis.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name} ({t.type}) - Level {t.level}
               </option>
             ))}
-          </select>
-        </div>
+          </Select>
+        </Box>
       )}
 
-      {/* Main Game Display */}
+      {/* Main Game Display - Two Columns */}
       {selectedTamagotchi ? (
-        <>
-          <Tamagotchi
-            type={selectedTamagotchi.type}
-            name={selectedTamagotchi.name}
-            hunger={selectedTamagotchi.hunger}
-            energy={selectedTamagotchi.energy}
-            happiness={selectedTamagotchi.happiness}
-          />
-          <Stats
-            hunger={selectedTamagotchi.hunger}
-            happiness={selectedTamagotchi.happiness}
-            energy={selectedTamagotchi.energy}
-          />
+        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6} mb={6}>
+          {/* Left Column - Tamagotchi Image */}
+          <Box
+            bg="white"
+            borderRadius="xl"
+            p={4}
+            border="1px solid #FDE2D3"
+            textAlign="center"
+          >
+            <Tamagotchi
+              type={selectedTamagotchi.type}
+              name={selectedTamagotchi.name}
+            />
+          </Box>
+
+          {/* Right Column - Stats + Action Buttons in same box */}
+          <Box bg="white" borderRadius="xl" p={4} border="1px solid #FDE2D3">
+            {/* Stats */}
+            <Stats
+              hunger={selectedTamagotchi.hunger}
+              happiness={selectedTamagotchi.happiness}
+              energy={selectedTamagotchi.energy}
+            />
+
+            {/* Level and XP Progress */}
+            <Box mt={4}>
+              <HStack justify="space-between" mb={1}>
+                <Text fontSize="sm" color="#5C4B3A">
+                  ⭐ Level {selectedTamagotchi.level}
+                </Text>
+                <Text fontSize="sm" color="#5C4B3A">
+                  📊 XP: {selectedTamagotchi.xp}/
+                  {selectedTamagotchi.level * 100}
+                </Text>
+              </HStack>
+              <Progress
+                value={
+                  (selectedTamagotchi.xp / (selectedTamagotchi.level * 100)) *
+                  100
+                }
+                bg="#F0E5D8"
+                colorScheme="green"
+                size="sm"
+                borderRadius="full"
+              />
+            </Box>
+
+            {/* Health Progress */}
+            <Box mt={4}>
+              <Text fontSize="sm" color="#5C4B3A" mb={1}>
+                ❤️ Health: {selectedTamagotchi.health}/100
+              </Text>
+              <Progress
+                value={selectedTamagotchi.health}
+                bg="#F0E5D8"
+                colorScheme={
+                  selectedTamagotchi.health > 70
+                    ? "green"
+                    : selectedTamagotchi.health > 30
+                      ? "yellow"
+                      : "red"
+                }
+                size="sm"
+                borderRadius="full"
+              />
+            </Box>
+
+            {/* Divider line */}
+            <Box borderBottom="1px solid #FDE2D3" my={4} />
+
+            {/* Action Buttons (Feed, Play, Rest) - INSIDE THE SAME BOX */}
+            <ActionButtons
+              onFeed={feedTamagotchi}
+              onPlay={playWithTamagotchi}
+              onRest={restTamagotchi}
+              hunger={selectedTamagotchi.hunger}
+              energy={selectedTamagotchi.energy}
+            />
+          </Box>
+        </SimpleGrid>
+      ) : (
+        <Box
+          bg="white"
+          borderRadius="xl"
+          p={8}
+          textAlign="center"
+          border="1px solid #FDE2D3"
+        >
+          <Text color="#8B7A6B">🎨 Create your first Tamagotchi above!</Text>
+        </Box>
+      )}
+
+      {/* Warning Messages */}
+      {selectedTamagotchi && (
+        <Box mb={6}>
           <WarningMessages
             hunger={selectedTamagotchi.hunger}
             energy={selectedTamagotchi.energy}
             happiness={selectedTamagotchi.happiness}
             health={selectedTamagotchi.health}
           />
-          <ActionButtons
-            onFeed={feedTamagotchi}
-            onPlay={playWithTamagotchi}
-            onRest={restTamagotchi}
-            hunger={selectedTamagotchi.hunger}
-            energy={selectedTamagotchi.energy}
-          />
-        </>
-      ) : (
-        <div style={{ textAlign: "center", padding: "40px" }}>
-          <p>🎨 Create your first Tamagotchi above!</p>
-        </div>
+        </Box>
       )}
 
       {/* Battle Arena Modal */}
@@ -436,7 +590,7 @@ function App() {
           onDelete={handleDeleteTamagotchi}
         />
       )}
-    </div>
+    </Box>
   );
 }
 

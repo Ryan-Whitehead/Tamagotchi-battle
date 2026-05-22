@@ -194,6 +194,7 @@ router.post("/start/:npcId", async (req, res) => {
         attack: playerAttack,
         defense: playerDefense,
         energy: playerTamagotchi.energy,
+        level: playerTamagotchi.level,
       },
       npc: {
         id: npc.id,
@@ -203,6 +204,7 @@ router.post("/start/:npcId", async (req, res) => {
         maxHp: npc.health,
         attack: npcAttack,
         defense: npcDefense,
+        level: npc.level,
       },
       status: battleSession.status,
     });
@@ -452,6 +454,11 @@ router.post("/action", async (req, res) => {
       let newXp = playerTamagotchi.xp + 50;
       let newLevel = playerTamagotchi.level;
       let leveledUp = false;
+      while (newXp >= newLevel * 100) {
+        newXp = newXp - newLevel * 100;
+        newLevel++;
+        leveledUp = true;
+      }
 
       const xpNeeded = playerTamagotchi.level * 100;
       if (newXp >= xpNeeded) {
